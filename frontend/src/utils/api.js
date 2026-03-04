@@ -1,9 +1,7 @@
 import axios from 'axios'
 
-base_url = process.env.NEXT_PUBLIC_API_URL
-// # Set this in your .env file, e.g. REACT_APP_API_URL=http://localhost:8000
 const api = axios.create({
-  baseURL: `${base_url}/api`,
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   timeout: 900000, // 15 minutes
 })
 
