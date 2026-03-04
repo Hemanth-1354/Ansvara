@@ -19,7 +19,7 @@ KEY_POOL = [
 ] if GROQ_API_KEYS else []
 
 TOP_K = 3            # BM25 chunks retrieved per question
-CONTEXT_WORDS = 250  # words per chunk sent to LLM (~330 tokens/chunk)
+CONTEXT_WORDS = 150  # matches chunk size — no trimming needed, full chunk always sent
 MAX_TOKENS = 300     # answer length cap — concise = faster
 
 
@@ -33,7 +33,7 @@ def _get_key_for_index(i: int):
 # Chunking
 # ---------------------------------------------------------------------------
 
-def chunk_text(text: str, chunk_size: int = 400, overlap: int = 40) -> List[str]:
+def chunk_text(text: str, chunk_size: int = 150, overlap: int = 20) -> List[str]:
     words = text.split()
     chunks, i = [], 0
     while i < len(words):
@@ -130,7 +130,7 @@ SYSTEM_PROMPT = (
 
 def _build_prompt(question: str, chunks: List[Dict]) -> str:
     context = "\n\n".join(
-        f"[{c['doc_name']}]:\n{_trim(c['chunk'])}" for c in chunks
+        f"[{c['doc_name']}]:\n{c['chunk']}" for c in chunks
     )
     return f"Reference text:\n{context}\n\nQuestion: {question}\n\nAnswer:"
 
