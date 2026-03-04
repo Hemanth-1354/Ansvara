@@ -1,44 +1,20 @@
-import axios from 'axios'
+import axios from "axios";
 
+// Automatically includes /api for all requests
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
-  timeout: 900000, // 15 minutes
-})
+  baseURL: `${import.meta.env.VITE_API_URL}/api`, // ✅ /api included here
+  timeout: 900000,
+});
 
 api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
-// NEVER wipe token in the interceptor — let explicit logout do it
 api.interceptors.response.use(
   res => res,
   err => Promise.reject(err)
-)
+);
 
-export default api
-
-
-
-
-
-// // import axios from 'axios'
-
-// // const api = axios.create({
-// //   baseURL: process.env.NEXT_PUBLIC_API_URL, // Use your backend
-// //   timeout: 900000, // 15 minutes
-// // })
-
-// api.interceptors.request.use(config => {
-//   const token = localStorage.getItem('token')
-//   if (token) config.headers.Authorization = `Bearer ${token}`
-//   return config
-// })
-
-// api.interceptors.response.use(
-//   res => res,
-//   err => Promise.reject(err)
-// )
-
-// export default api
+export default api;
