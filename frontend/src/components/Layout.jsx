@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FileQuestion, LogOut, Sparkles, Sun, Moon, ChevronUp, User } from 'lucide-react'
+import { LayoutDashboard, FileQuestion, LogOut, Sun, Moon, ChevronUp, User } from 'lucide-react'
 import useAuthStore from '../store/authStore'
 import useThemeStore from '../store/themeStore'
 
@@ -43,19 +43,13 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 flex flex-col shadow-sm">
 
-        {/* Logo — no globe icon */}
-        <div className="px-5 py-5 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-primary-600 rounded-xl flex items-center justify-center shadow-md shrink-0">
-              <Sparkles size={18} className="text-white" />
-            </div>
-            <div>
-              <div className="font-display font-bold text-slate-900 dark:text-white text-base leading-tight">
-                Ansvara
-              </div>
-              <div className="text-xs text-slate-400 font-medium">AI Answer Engine</div>
-            </div>
-          </div>
+        {/* Logo */}
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+          <img
+            src="/logo.jpg"
+            alt="Ansvara"
+            className="h-8 w-auto object-contain"
+          />
         </div>
 
         {/* Nav */}
