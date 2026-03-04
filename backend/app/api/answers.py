@@ -10,7 +10,7 @@ import io
 from app.models.database import get_db, Questionnaire, ReferenceDocument, AnswerRun, Answer, User
 from app.api.auth import get_current_user
 from app.services.parser import parse_questions
-from app.services.llm import process_question, pre_chunk_docs
+from app.services.llm import process_all_questions, process_question, pre_chunk_docs
 from app.services.exporter import export_to_docx, export_to_pdf
 
 router = APIRouter()
@@ -71,12 +71,9 @@ async def generate_answers(
     db.flush()
     print(f"  - Created AnswerRun ID: {run.id}")
 
-    # Process all questions in parallel
-    print(f"  - Dispatching {len(questions)} questions to LLM pipeline...")
-    tasks = [process_question(question, pre_chunked_docs)
-             for question in questions]
-    results = await asyncio.gather(*tasks)
-    print(f"  - LLM pipeline completed all {len(questions)} tasks.")
+    # Process ALL questions in batches — much faster than one call per question
+    print(f"  - Processing {len(questions)} questions in batches...")
+    results = await process_all_questions(questions, pre_chunked_docs)
 
     answers = []
     answered = 0
