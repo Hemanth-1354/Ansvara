@@ -5,7 +5,7 @@ from app.models.database import engine, Base
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="QuestionnAIre Tool API", version="1.0.0")
+app = FastAPI(title="Ansvara Tool API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,

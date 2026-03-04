@@ -38,7 +38,7 @@ export default function LoginPage() {
             <Sparkles size={30} className="text-white" />
           </div>
           <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">Welcome back</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">Sign in to QuestionnAIre</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">Sign in to Ansvara</p>
         </div>
 
         <div className="card shadow-xl shadow-slate-100 dark:shadow-none">

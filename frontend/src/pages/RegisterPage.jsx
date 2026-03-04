@@ -62,7 +62,7 @@ export default function RegisterPage() {
             <Sparkles size={30} className="text-white" />
           </div>
           <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">Create account</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">Get started with QuestionnAIre</p>
+          <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">Get started with Ansvara</p>
         </div>
 
         <div className="card shadow-xl shadow-slate-100 dark:shadow-none">

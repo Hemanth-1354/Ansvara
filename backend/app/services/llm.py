@@ -1,10 +1,25 @@
 import os
 import re
+import asyncio
+import random
 from typing import List, Dict, Tuple
-from groq import Groq
+from groq import AsyncGroq, RateLimitError
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+# Load multiple API keys if provided (comma-separated)
+GROQ_API_KEYS = [k.strip() for k in os.getenv(
+    "GROQ_API_KEY", "").split(",") if k.strip()]
+clients = [AsyncGroq(api_key=key) for key in GROQ_API_KEYS]
+
+# Semaphore to limit total concurrent requests to Groq (across all keys)
+# 10 is a safe number to avoid overwhelming the API while maintaining speed
+concurrency_limit = asyncio.Semaphore(10)
+
+
+def get_client():
+    """Get a random client from the pool to distribute load."""
+    if not clients:
+        return None
+    return random.choice(clients)
 
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
@@ -78,12 +93,12 @@ def compute_confidence(retrieved_chunks: List[Dict]) -> float:
     return round(confidence, 2)
 
 
-def answer_question_with_llm(
+async def answer_question_with_llm(
     question: str,
     context_chunks: List[Dict]
 ) -> Tuple[str, bool]:
-    """Use Groq LLM to answer a question given context chunks."""
-    print(f"--- Answering question: {question[:80]}... ---")  # Log question start
+    """Use Groq LLM to answer a question given context chunks with retries and concurrency control."""
+    print(f"--- Answering question: {question[:80]}... ---")
 
     if not context_chunks:
         print("[LLM Service] No context chunks found. Returning 'Not found'.")
@@ -110,49 +125,73 @@ Question: {question}
 
 Answer based strictly on the reference documents above:"""
 
-    if not client:
-        print("[LLM Service] Groq client not available (API key likely missing). Returning mock answer.")
-        return _mock_answer(question, context_chunks), True
+    max_retries = 3
+    base_delay = 2
 
-    try:
-        print(f"[LLM Service] Sending request to Groq API for question: {question[:80]}...")
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            max_tokens=400,
-            temperature=0.1
-        )
-        answer = response.choices[0].message.content.strip()
-        is_found = answer.lower() != "not found in references."
-        print(f"[LLM Service] Successfully received answer from Groq.")
-        return answer, is_found
-    except Exception as e:
-        print(f"--- GROQ API ERROR ---")
-        print(f"Error processing question: {question}")
-        print(f"Exception Type: {type(e).__name__}")
-        print(f"Exception Details: {e}")
-        print(f"----------------------")
-        return _mock_answer(question, context_chunks), True
+    async with concurrency_limit:
+        for attempt in range(max_retries):
+            client = get_client()
+            if not client:
+                print(
+                    "[LLM Service] No Groq clients available. Returning mock answer.")
+                return await _mock_answer(question, context_chunks), True
+
+            try:
+                print(
+                    f"[LLM Service] Attempt {attempt + 1}: Sending request to Groq API for question: {question[:80]}...")
+                response = await client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    max_tokens=400,
+                    temperature=0.1
+                )
+                answer = response.choices[0].message.content.strip()
+                is_found = answer.lower() != "not found in references."
+                print(f"[LLM Service] Successfully received answer from Groq.")
+                return answer, is_found
+
+            except RateLimitError:
+                # Exponential backoff for rate limits
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                print(
+                    f"[LLM Service] Rate limited! Retrying in {delay:.2f}s... (Attempt {attempt + 1}/{max_retries})")
+                await asyncio.sleep(delay)
+                continue
+
+            except Exception as e:
+                print(f"--- GROQ API ERROR ---")
+                print(f"Error processing question: {question}")
+                print(f"Exception Type: {type(e).__name__}")
+                print(f"Exception Details: {e}")
+                print(f"----------------------")
+                # For non-rate-limit errors, fall back to mock answer
+                return await _mock_answer(question, context_chunks), True
+
+        # If all retries fail
+        print(
+            f"[LLM Service] All retries failed for question: {question[:80]}...")
+        return await _mock_answer(question, context_chunks), True
 
 
-def _mock_answer(question: str, chunks: List[Dict]) -> str:
+async def _mock_answer(question: str, chunks: List[Dict]) -> str:
     """Fallback mock answer when API key is not set."""
+    await asyncio.sleep(0.1)  # Simulate some processing
     if not chunks:
         return "Not found in references."
     snippet = chunks[0]["chunk"][:200]
     return f"Based on the reference documents: {snippet}..."
 
 
-def process_question(
+async def process_question(
     question: str,
     reference_docs: List[Dict]
 ) -> Dict:
     """Full pipeline: retrieve → answer → format result."""
     retrieved = retrieve_relevant_chunks(question, reference_docs, top_k=3)
-    answer, is_found = answer_question_with_llm(question, retrieved)
+    answer, is_found = await answer_question_with_llm(question, retrieved)
 
     if not is_found or not retrieved:
         return {

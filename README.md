@@ -1,10 +1,10 @@
-# QuestionnAIre — AI-Powered Questionnaire Answering Tool
+# Ansvara — AI-Powered Questionnaire Answering Tool
 
 > **GTM Engineering Internship Assignment**
 
 ## What I Built
 
-**QuestionnAIre** is a full-stack web application that automates the completion of structured questionnaires (security reviews, vendor assessments, compliance audits) using AI. Users upload a questionnaire and reference documents; the system uses RAG (Retrieval-Augmented Generation) with Groq's LLaMA 3.1 to answer each question with citations and confidence scores.
+**Ansvara** is a full-stack web application that automates the completion of structured questionnaires (security reviews, vendor assessments, compliance audits) using AI. Users upload a questionnaire and reference documents; the system uses RAG (Retrieval-Augmented Generation) with Groq's LLaMA 3.1 to answer each question with citations and confidence scores.
 
 ### Fictional Company
 

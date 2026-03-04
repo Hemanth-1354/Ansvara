@@ -1,4 +1,5 @@
 import os
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -28,7 +29,7 @@ class RegenerateRequest(BaseModel):
 
 
 @router.post("/generate")
-def generate_answers(
+async def generate_answers(
     req: GenerateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -63,16 +64,19 @@ def generate_answers(
     db.add(run)
     db.flush()
 
+    # Process all questions in parallel
+    tasks = [process_question(question, docs) for question in questions]
+    results = await asyncio.gather(*tasks)
+
     answers = []
     answered = 0
     not_found = 0
 
-    for idx, question in enumerate(questions):
-        result = process_question(question, docs)
+    for idx, result in enumerate(results):
         answer = Answer(
             run_id=run.id,
             question_index=idx,
-            question_text=question,
+            question_text=questions[idx],
             answer_text=result["answer"],
             citations=result["citations"],
             confidence=result["confidence"],
@@ -189,7 +193,7 @@ def edit_answer(
 
 
 @router.post("/runs/{run_id}/regenerate")
-def regenerate_answers(
+async def regenerate_answers(
     run_id: int,
     req: RegenerateRequest,
     db: Session = Depends(get_db),
@@ -206,21 +210,31 @@ def regenerate_answers(
     ).all()
     docs = [{"name": d.filename, "content": d.content or ""} for d in ref_docs]
 
-    updated = []
+    answers_to_update = []
     for answer_id in req.answer_ids:
         answer = db.query(Answer).filter(
             Answer.id == answer_id, Answer.run_id == run_id
         ).first()
-        if not answer:
-            continue
-        result = process_question(answer.question_text, docs)
+        if answer:
+            answers_to_update.append(answer)
+
+    if not answers_to_update:
+        return {"updated": []}
+
+    # Process regenerations in parallel
+    tasks = [process_question(a.question_text, docs)
+             for a in answers_to_update]
+    results = await asyncio.gather(*tasks)
+
+    updated_ids = []
+    for answer, result in zip(answers_to_update, results):
         answer.answer_text = result["answer"]
         answer.citations = result["citations"]
         answer.confidence = result["confidence"]
         answer.evidence_snippets = result["evidence_snippets"]
         answer.is_found = result["is_found"]
         answer.edited = False
-        updated.append(answer.id)
+        updated_ids.append(answer.id)
 
     # Update summary
     all_answers = db.query(Answer).filter(Answer.run_id == run_id).all()
@@ -230,7 +244,7 @@ def regenerate_answers(
                    "answered": answered, "not_found": not_found}
     db.commit()
 
-    return {"updated": updated}
+    return {"updated": updated_ids}
 
 
 @router.delete("/runs/{run_id}")

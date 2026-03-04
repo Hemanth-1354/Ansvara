@@ -51,7 +51,7 @@ export default function Layout() {
             </div>
             <div>
               <div className="font-display font-bold text-slate-900 dark:text-white text-base leading-tight">
-                QuestionnAIre
+                Ansvara
               </div>
               <div className="text-xs text-slate-400 font-medium">AI Answer Engine</div>
             </div>
