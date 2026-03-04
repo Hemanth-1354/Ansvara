@@ -10,7 +10,7 @@ import io
 from app.models.database import get_db, Questionnaire, ReferenceDocument, AnswerRun, Answer, User
 from app.api.auth import get_current_user
 from app.services.parser import extract_text, parse_questions
-from app.services.llm import process_question
+from app.services.llm import process_question, pre_chunk_docs
 from app.services.exporter import export_to_docx, export_to_pdf
 
 router = APIRouter()
@@ -34,44 +34,57 @@ async def generate_answers(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    print(
+        f"\n[API /generate] Starting new generation run for Questionnaire ID: {req.questionnaire_id}")
     q = db.query(Questionnaire).filter(
         Questionnaire.id == req.questionnaire_id,
         Questionnaire.user_id == current_user.id
     ).first()
     if not q:
+        print(f"  - Error: Questionnaire {req.questionnaire_id} not found.")
         raise HTTPException(404, "Questionnaire not found")
 
     ref_docs = db.query(ReferenceDocument).filter(
         ReferenceDocument.user_id == current_user.id
     ).all()
     if not ref_docs:
+        print("  - Error: No reference documents found for user.")
         raise HTTPException(400, "No reference documents uploaded")
 
     # Read questionnaire file
+    print(f"  - Reading questionnaire file: {q.filename}")
     with open(q.file_path, "rb") as f:
         file_bytes = f.read()
     text = extract_text(file_bytes, q.filename)
     questions = parse_questions(text)
 
     if not questions:
+        print("  - Error: Parser found 0 questions.")
         raise HTTPException(400, "No questions found in questionnaire")
+    print(f"  - Parser found {len(questions)} questions.")
 
-    # Build reference docs list
+    # Build reference docs list and pre-chunk them
     docs = [{"name": d.filename, "content": d.content or ""} for d in ref_docs]
+    pre_chunked_docs = pre_chunk_docs(docs)
 
     # Create run
     run = AnswerRun(questionnaire_id=q.id, user_id=current_user.id)
     db.add(run)
     db.flush()
+    print(f"  - Created AnswerRun ID: {run.id}")
 
     # Process all questions in parallel
-    tasks = [process_question(question, docs) for question in questions]
+    print(f"  - Dispatching {len(questions)} questions to LLM pipeline...")
+    tasks = [process_question(question, pre_chunked_docs)
+             for question in questions]
     results = await asyncio.gather(*tasks)
+    print(f"  - LLM pipeline completed all {len(questions)} tasks.")
 
     answers = []
     answered = 0
     not_found = 0
 
+    print("  - Saving results to database...")
     for idx, result in enumerate(results):
         answer = Answer(
             run_id=run.id,
@@ -94,6 +107,7 @@ async def generate_answers(
                "answered": answered, "not_found": not_found}
     run.summary = summary
     db.commit()
+    print(f"[API /generate] Run {run.id} finished. Summary: {summary}\n")
 
     return {
         "run_id": run.id,
@@ -209,6 +223,7 @@ async def regenerate_answers(
         ReferenceDocument.user_id == current_user.id
     ).all()
     docs = [{"name": d.filename, "content": d.content or ""} for d in ref_docs]
+    pre_chunked_docs = pre_chunk_docs(docs)
 
     answers_to_update = []
     for answer_id in req.answer_ids:
@@ -222,7 +237,7 @@ async def regenerate_answers(
         return {"updated": []}
 
     # Process regenerations in parallel
-    tasks = [process_question(a.question_text, docs)
+    tasks = [process_question(a.question_text, pre_chunked_docs)
              for a in answers_to_update]
     results = await asyncio.gather(*tasks)
 
