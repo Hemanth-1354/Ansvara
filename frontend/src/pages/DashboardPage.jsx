@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { FileText, Clock, CheckCircle2, XCircle, Plus, BarChart3, ArrowRight, Trash2 } from 'lucide-react'
+import { FileText, Clock, CheckCircle2, XCircle, Plus, BarChart3, ArrowRight, Trash2, Calendar } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../utils/api'
 import useAuthStore from '../store/authStore'
@@ -19,11 +19,30 @@ function StatCard({ icon: Icon, label, value, color, bg }) {
   )
 }
 
+const DATE_FILTERS = [
+  { label: 'All time',   value: 'all' },
+  { label: 'Today',      value: 'today' },
+  { label: 'Last 7 days',value: '7d' },
+  { label: 'Last 30 days',value: '30d' },
+]
+
+function isWithin(dateStr, filter) {
+  if (filter === 'all') return true
+  const date = new Date(dateStr)
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  if (filter === 'today') return date >= startOfToday
+  if (filter === '7d') return date >= new Date(now - 7 * 86400000)
+  if (filter === '30d') return date >= new Date(now - 30 * 86400000)
+  return true
+}
+
 export default function DashboardPage() {
-  const [runs, setRuns] = useState([])
-  const [loading, setLoading] = useState(true)
-  const { user } = useAuthStore()
-  const navigate = useNavigate()
+  const [runs, setRuns]           = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [dateFilter, setDateFilter] = useState('all')
+  const { user }                  = useAuthStore()
+  const navigate                  = useNavigate()
 
   useEffect(() => {
     api.get('/answers/runs').then(r => {
@@ -32,11 +51,13 @@ export default function DashboardPage() {
     }).catch(() => setLoading(false))
   }, [])
 
+  const filteredRuns = runs.filter(r => isWithin(r.created_at, dateFilter))
+
   const totalAnswered = runs.reduce((s, r) => s + (r.summary?.answered || 0), 0)
   const totalNotFound = runs.reduce((s, r) => s + (r.summary?.not_found || 0), 0)
 
   const handleDelete = async (runId) => {
-    if (!window.confirm('Are you sure you want to delete this entire run? This action cannot be undone.')) return
+    if (!window.confirm('Are you sure you want to delete this run?')) return
     try {
       await api.delete(`/answers/runs/${runId}`)
       setRuns(prev => prev.filter(r => r.id !== runId))
@@ -71,20 +92,50 @@ export default function DashboardPage() {
 
       {/* Run History */}
       <div className="card">
-        <div className="flex items-center gap-2 mb-6">
-          <Clock size={16} className="text-slate-400" />
-          <h2 className="font-display font-bold text-slate-700 dark:text-slate-200">Run History</h2>
+        {/* Header row with title + date filter */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Clock size={16} className="text-slate-400" />
+            <h2 className="font-display font-bold text-slate-700 dark:text-slate-200">Run History</h2>
+            {dateFilter !== 'all' && (
+              <span className="text-xs bg-primary-50 dark:bg-primary-950 text-primary-600 dark:text-primary-400 font-semibold px-2 py-0.5 rounded-full">
+                {filteredRuns.length} result{filteredRuns.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {/* Date filter pills */}
+          <div className="flex items-center gap-1.5">
+            <Calendar size={13} className="text-slate-400 mr-1" />
+            {DATE_FILTERS.map(f => (
+              <button
+                key={f.value}
+                onClick={() => setDateFilter(f.value)}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
+                  dateFilter === f.value
+                    ? 'bg-primary-600 text-white shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (
           <div className="text-center py-12 text-slate-400">Loading...</div>
-        ) : runs.length === 0 ? (
+        ) : filteredRuns.length === 0 ? (
           <div className="text-center py-14">
             <BarChart3 size={42} className="text-slate-200 dark:text-slate-700 mx-auto mb-4" />
-            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium mb-4">No runs yet. Upload a questionnaire to get started.</p>
-            <Link to="/workspace" className="btn-primary inline-flex">
-              <Plus size={16} /> Get Started
-            </Link>
+            <p className="text-slate-400 dark:text-slate-500 text-sm font-medium mb-4">
+              {dateFilter === 'all' ? 'No runs yet. Upload a questionnaire to get started.' : `No runs in this time period.`}
+            </p>
+            {dateFilter === 'all' && (
+              <Link to="/workspace" className="btn-primary inline-flex">
+                <Plus size={16} /> Get Started
+              </Link>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -97,7 +148,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                {runs.map(run => (
+                {filteredRuns.map(run => (
                   <tr key={run.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
                     <td className="py-3.5 font-semibold text-slate-700 dark:text-slate-200">
                       {run.questionnaire_name || `Run #${run.id}`}

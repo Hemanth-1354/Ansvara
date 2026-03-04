@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Sparkles, Loader2, Eye, EyeOff, Sun, Moon, AlertCircle } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Sun, Moon, AlertCircle } from 'lucide-react'
 import useAuthStore from '../store/authStore'
 import useThemeStore from '../store/themeStore'
 
@@ -18,7 +18,6 @@ export default function LoginPage() {
     setError('')
     try {
       await login(email, password)
-      // token is now in localStorage — navigate triggers PublicRoute/PrivateRoute re-evaluation
       navigate('/', { replace: true })
     } catch (err) {
       setError(err.response?.data?.detail || 'Invalid email or password')
@@ -34,11 +33,13 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-5 shadow-lg">
-            <Sparkles size={30} className="text-white" />
+          {/* Logo + Name side by side */}
+          <div className="inline-flex items-center gap-3 mb-5">
+            <img src="/logo-final.webp" alt="Ansvara" className="w-14 h-14 rounded-2xl object-cover shadow-lg" />
+            <span className="font-display text-3xl font-bold text-slate-900 dark:text-white">Ansvara</span>
           </div>
-          <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">Welcome back</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">Sign in to Ansvara</p>
+          <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">Welcome back</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm font-medium">Sign in to continue</p>
         </div>
 
         <div className="card shadow-xl shadow-slate-100 dark:shadow-none">

@@ -43,14 +43,17 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 flex flex-col shadow-sm">
 
-        {/* Logo */}
+        {/* Logo + Name */}
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-          <img
-            src="/logo.jpg"
-            alt="Ansvara"
-            className="h-8 w-auto object-contain"
-          />
-          
+          <div className="flex items-center gap-2.5">
+            <img src="/logo-final.webp" alt="Ansvara" className="w-9 h-9 rounded-xl object-cover shadow-sm shrink-0" />
+            {/* <span className="font-display font-bold text-slate-900 dark:text-white text-xl leading-none">Ansvara</span> */}
+            {/* <span className="font-display font-bold text-slate-900 dark:text-white text-xl tracking-wide leading-none">Ansvara</span> */}
+            <span className="font-display font-bold text-slate-900 dark:text-white text-xl tracking-[0.03em] leading-none">Ansvara</span>
+            {/* <span className="font-display font-black tracking-wider text-xl text-slate-900 dark:text-white leading-none">ANSVARA</span> */}
+            {/* <span className="font-display font-extrabold tracking-[0.05em] text-xl text-slate-900 dark:text-white leading-none">Ansvara</span> */}
+            {/* <span className="font-display font-extrabold tracking-wide text-xl text-slate-900 dark:text-white leading-none">Ansvara</span> */}
+          </div>
         </div>
 
         {/* Nav */}
