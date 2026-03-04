@@ -1,0 +1,20 @@
+NovaMed Health — Information Security Policy
+Document Version: 3.1 | Last Updated: January 2025
+
+1. HIPAA Compliance
+NovaMed Health is fully compliant with the Health Insurance Portability and Accountability Act (HIPAA) of 1996 and the HITECH Act. All systems that store, process, or transmit Protected Health Information (PHI) are subject to our HIPAA Security Rule compliance program. We conduct annual HIPAA risk assessments and maintain a comprehensive HIPAA compliance training program for all employees. NovaMed has appointed a dedicated HIPAA Privacy Officer and Security Officer.
+
+2. Encryption Standards
+All data at rest is encrypted using AES-256 encryption. All data in transit is protected using TLS 1.2 or TLS 1.3. Database backups are encrypted using AES-256 before storage. Encryption keys are managed through AWS Key Management Service (KMS) with automatic rotation every 90 days. End-to-end encryption is applied to all PHI transmitted between clients and our servers.
+
+3. Authentication & Access Control
+NovaMed enforces multi-factor authentication (MFA) for all user accounts accessing clinical or administrative portals. Passwords must meet complexity requirements: minimum 12 characters, including uppercase, lowercase, numbers, and special characters. Failed login attempts are limited to 5 consecutive tries before a temporary account lockout is enforced. All user sessions expire after 30 minutes of inactivity.
+
+4. Role-Based Access Control (RBAC)
+Our platform implements a comprehensive Role-Based Access Control (RBAC) system. User roles include: Super Admin, Organization Admin, Clinician, Nurse, Billing Staff, and Read-Only Viewer. Access to PHI is restricted on a need-to-know basis. All role assignments are logged and auditable. Privilege escalation requires approval from an Organization Admin. Access reviews are conducted quarterly.
+
+5. Incident Response
+NovaMed maintains a formal Incident Response Plan (IRP) aligned with NIST SP 800-61. In the event of a suspected data breach, our Security Team is notified within 1 hour. A formal investigation is initiated within 4 hours. Affected individuals and regulators are notified within 60 days as required by HIPAA Breach Notification Rule. A dedicated incident response hotline is available 24/7. Post-incident reviews are conducted within 30 days.
+
+6. Business Associate Agreements
+NovaMed offers signed Business Associate Agreements (BAAs) to all covered entities and business associates as required by HIPAA. BAAs define the permitted uses and disclosures of PHI, safeguard requirements, and breach notification obligations. All BAAs are reviewed annually and updated to reflect regulatory changes.

@@ -1,0 +1,32 @@
+NovaMed Health — Certifications, Audits & Vulnerability Management
+Document Version: 1.8 | Last Updated: March 2025
+
+1. Security Certifications
+NovaMed Health holds the following third-party security certifications and attestations:
+- SOC 2 Type II (Security, Availability, Confidentiality) — Audited annually by Deloitte
+- HITRUST CSF Certified — Renewed in Q4 2024
+- ISO 27001 Certified — Certificate valid through December 2026
+- PCI-DSS Level 2 — For payment processing components
+- HIPAA Compliance attestation — Self-assessed and audited annually
+
+Certification reports are available to clients under NDA upon request.
+
+2. Penetration Testing & Security Audits
+NovaMed conducts annual third-party penetration testing across all production environments. The most recent pentest was performed by Bishop Fox in November 2024. Critical and high-severity findings are remediated within 30 days. Medium findings are resolved within 90 days. Results are reviewed by the CISO and remediation progress is tracked in our vulnerability management platform.
+
+3. Vulnerability Management
+All production systems are scanned for vulnerabilities weekly using Qualys. Critical patches (CVSS 9.0+) are applied within 24 hours of release. High severity patches (CVSS 7.0–8.9) are applied within 7 days. Medium and low patches are applied within the monthly maintenance cycle. All software dependencies are monitored via Dependabot and Snyk for known CVEs.
+
+4. Software Development Security
+NovaMed follows a Secure Software Development Lifecycle (SSDLC). All code changes require peer review and automated security scanning before merging. Static Application Security Testing (SAST) is performed using Semgrep on every pull request. Dynamic Application Security Testing (DAST) is performed on staging environments weekly. Developers complete secure coding training annually.
+
+5. Network Security
+NovaMed's production environment is hosted on AWS and protected by:
+- AWS Web Application Firewall (WAF) for all public endpoints
+- VPC network segmentation with strict security group rules
+- Intrusion Detection System (IDS) monitoring all network traffic
+- DDoS protection via AWS Shield Advanced
+- All administrative access requires VPN and MFA
+
+6. Employee Security Training
+All NovaMed employees complete mandatory security awareness training at onboarding and annually thereafter. Phishing simulation exercises are conducted quarterly. Employees with access to PHI complete additional HIPAA privacy training. Security policy violations are subject to disciplinary action up to and including termination.

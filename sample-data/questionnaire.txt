@@ -1,0 +1,30 @@
+NovaMed Health — Vendor Security & Compliance Questionnaire
+
+Company Overview
+Vendor: NovaMed Health
+Assessment Type: Security Review & Compliance Audit
+Year: 2025
+
+1. Does your platform comply with HIPAA regulations for handling Protected Health Information (PHI)?
+
+2. What encryption standards are used for data at rest and data in transit?
+
+3. How does NovaMed handle user authentication and access control?
+
+4. What is your data backup and disaster recovery process?
+
+5. How long is patient data retained, and what is your data deletion policy?
+
+6. Does your system support role-based access control (RBAC)?
+
+7. What third-party security audits or certifications does NovaMed hold?
+
+8. How are software vulnerabilities and security patches managed?
+
+9. What is your incident response process in the event of a data breach?
+
+10. Does NovaMed offer a Business Associate Agreement (BAA) to healthcare clients?
+
+11. How does NovaMed ensure uptime and system availability for clinical workflows?
+
+12. What is your process for managing third-party vendor and subprocessor risks?

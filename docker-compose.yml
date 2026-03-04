@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: questuser
+      POSTGRES_PASSWORD: questpass
+      POSTGRES_DB: questdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U questuser -d questdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        CACHEBUST: ${CACHEBUST:-1}
+    environment:
+      DATABASE_URL: postgresql://questuser:questpass@db:5432/questdb
+      SECRET_KEY: change-me-in-production-please
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        CACHEBUST: ${CACHEBUST:-1}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  uploads:

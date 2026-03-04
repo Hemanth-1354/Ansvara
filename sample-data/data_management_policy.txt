@@ -1,0 +1,20 @@
+NovaMed Health — Data Management & Retention Policy
+Document Version: 2.4 | Last Updated: February 2025
+
+1. Data Retention
+Patient records and clinical data are retained for a minimum of 7 years from the date of the patient's last visit, in compliance with applicable state and federal regulations. Certain records, such as those related to minors, are retained until the patient reaches age 21 plus 7 years. Audit logs and access records are retained for 6 years. Financial and billing records are retained for 10 years.
+
+2. Data Deletion
+Upon expiration of the retention period, data is deleted using the NIST 800-88 media sanitization guidelines. Soft-deleted records are permanently purged from all systems, including backups, within 90 days. Clients may request early deletion of their data by submitting a formal data deletion request. Deletion is confirmed in writing within 30 business days.
+
+3. Backup & Disaster Recovery
+NovaMed performs automated daily incremental backups and weekly full backups of all production databases. Backups are stored in geographically redundant AWS S3 buckets in us-east-1 and us-west-2. Backup integrity is verified through automated daily restore tests. Our Recovery Time Objective (RTO) is 4 hours and our Recovery Point Objective (RPO) is 1 hour. Disaster recovery drills are conducted bi-annually.
+
+4. System Availability & Uptime
+NovaMed guarantees 99.9% uptime SLA for all production systems, as defined in our service agreements. Our infrastructure is deployed across multiple AWS availability zones to eliminate single points of failure. Planned maintenance windows are scheduled during off-peak hours (Sunday 2:00–4:00 AM EST) with 72-hour advance notice. Real-time system status is available at status.novamed.health.
+
+5. Third-Party Vendor Management
+All third-party vendors and subprocessors that handle PHI are required to sign a Business Associate Agreement before accessing any data. Vendors are evaluated against our vendor risk management questionnaire, which assesses security controls, compliance certifications, and incident response capabilities. Subprocessors are reviewed and approved annually. NovaMed maintains an up-to-date subprocessor list available upon request.
+
+6. Data Classification
+NovaMed classifies all data into four tiers: Public, Internal, Confidential, and Restricted. PHI and PII fall under the Restricted classification and are subject to the strictest access and handling controls. All employees complete annual data handling training aligned with data classification requirements.
