@@ -50,6 +50,7 @@ export default function Layout() {
             alt="Ansvara"
             className="h-8 w-auto object-contain"
           />
+          
         </div>
 
         {/* Nav */}
