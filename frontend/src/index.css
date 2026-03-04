@@ -30,6 +30,9 @@
   .badge-notfound {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 dark:bg-red-900 text-red-600 dark:text-red-400;
   }
+  .btn-action-red {
+    @apply bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900 dark:hover:bg-red-800 dark:text-red-400 font-semibold p-2 rounded-lg transition-all duration-200 active:scale-95;
+  }
   .badge-edited {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-900 text-amber-700 dark:text-amber-400;
   }

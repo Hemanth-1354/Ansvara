@@ -133,22 +133,30 @@ export default function WorkspacePage() {
             </div>
           ),
           {
-            duration: 6000,
+            duration: 100000,
           }
         );
         setStep(1);
         setQuestFile(null);
         setUploadedQuestionnaire(null);
       } else {
-        toast.error(res.data.detail || "Generation failed");
+        toast.error(res.data.detail || "Generation failed", { duration: 10000 });
       }
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      console.error("Generation failed:", err.response || err);
-      if (detail) {
-        toast.error(detail);
+      console.error("Generation failed:", err);
+
+      if (err.code === 'ECONNABORTED') {
+        toast.error(
+          "Request timed out. The server may still be processing in the background. Please check the dashboard in a moment.",
+          { duration: 10000 }
+        );
       } else {
-        toast.error("An unknown error occurred during generation.");
+        const detail = err.response?.data?.detail;
+        if (detail) {
+          toast.error(detail, { duration: 10000 });
+        } else {
+          toast.error("An unknown error occurred during generation.", { duration: 10000 });
+        }
       }
     } finally {
       setGenerating(false);

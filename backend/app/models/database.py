@@ -25,7 +25,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
 
     questionnaires = relationship("Questionnaire", back_populates="owner")
     reference_docs = relationship("ReferenceDocument", back_populates="owner")
@@ -56,7 +56,7 @@ class ReferenceDocument(Base):
     filename = Column(String, nullable=False)
     file_path = Column(String)
     content = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
 
     owner = relationship("User", back_populates="reference_docs")
 
@@ -66,7 +66,7 @@ class AnswerRun(Base):
     id = Column(Integer, primary_key=True, index=True)
     questionnaire_id = Column(Integer, ForeignKey("questionnaires.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
     summary = Column(JSON)  # {total, answered, not_found}
 
     questionnaire = relationship("Questionnaire", back_populates="runs")

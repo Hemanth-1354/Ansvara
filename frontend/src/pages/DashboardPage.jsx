@@ -108,18 +108,21 @@ export default function DashboardPage() {
                       {new Date(run.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-3.5 text-right">
-                      <button
-                        onClick={() => navigate(`/runs/${run.id}`)}
-                        className="btn-secondary text-xs py-1.5 px-3 opacity-0 group-hover:opacity-100"
-                      >
-                        View <ArrowRight size={12} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(run.id)}
-                        className="btn-action-red text-xs py-1.5 px-3 opacity-0 group-hover:opacity-100 ml-2"
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => navigate(`/runs/${run.id}`)}
+                          className="btn-secondary text-xs py-1.5 px-3"
+                        >
+                          View <ArrowRight size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(run.id)}
+                          className="btn-action-red text-xs p-2"
+                          title="Delete Run"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

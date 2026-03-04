@@ -83,7 +83,10 @@ def answer_question_with_llm(
     context_chunks: List[Dict]
 ) -> Tuple[str, bool]:
     """Use Groq LLM to answer a question given context chunks."""
+    print(f"--- Answering question: {question[:80]}... ---")  # Log question start
+
     if not context_chunks:
+        print("[LLM Service] No context chunks found. Returning 'Not found'.")
         return "Not found in references.", False
 
     context = "\n\n".join([
@@ -108,9 +111,11 @@ Question: {question}
 Answer based strictly on the reference documents above:"""
 
     if not client:
+        print("[LLM Service] Groq client not available (API key likely missing). Returning mock answer.")
         return _mock_answer(question, context_chunks), True
 
     try:
+        print(f"[LLM Service] Sending request to Groq API for question: {question[:80]}...")
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
@@ -122,9 +127,14 @@ Answer based strictly on the reference documents above:"""
         )
         answer = response.choices[0].message.content.strip()
         is_found = answer.lower() != "not found in references."
+        print(f"[LLM Service] Successfully received answer from Groq.")
         return answer, is_found
     except Exception as e:
-        print(f"Groq API error: {e}")
+        print(f"--- GROQ API ERROR ---")
+        print(f"Error processing question: {question}")
+        print(f"Exception Type: {type(e).__name__}")
+        print(f"Exception Details: {e}")
+        print(f"----------------------")
         return _mock_answer(question, context_chunks), True
 
 
