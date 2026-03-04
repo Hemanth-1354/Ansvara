@@ -9,7 +9,7 @@ import io
 
 from app.models.database import get_db, Questionnaire, ReferenceDocument, AnswerRun, Answer, User
 from app.api.auth import get_current_user
-from app.services.parser import extract_text, parse_questions
+from app.services.parser import parse_questions
 from app.services.llm import process_question, pre_chunk_docs
 from app.services.exporter import export_to_docx, export_to_pdf
 
@@ -51,11 +51,9 @@ async def generate_answers(
         print("  - Error: No reference documents found for user.")
         raise HTTPException(400, "No reference documents uploaded")
 
-    # Read questionnaire file
-    print(f"  - Reading questionnaire file: {q.filename}")
-    with open(q.file_path, "rb") as f:
-        file_bytes = f.read()
-    text = extract_text(file_bytes, q.filename)
+    # Read questionnaire text from DB (extracted at upload time — no file on disk)
+    print(f"  - Reading questionnaire content from DB: {q.filename}")
+    text = q.content or ""
     questions = parse_questions(text)
 
     if not questions:

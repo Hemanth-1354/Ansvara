@@ -27,8 +27,9 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
 
-    questionnaires = relationship("Questionnaire", back_populates="owner")
-    reference_docs = relationship("ReferenceDocument", back_populates="owner")
+    questionnaires = relationship("Questionnaire", back_populates="owner", cascade="all, delete-orphan")
+    reference_docs = relationship("ReferenceDocument", back_populates="owner", cascade="all, delete-orphan")
+    runs = relationship("AnswerRun", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Questionnaire(Base):
@@ -37,16 +38,13 @@ class Questionnaire(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     filename = Column(String, nullable=False)
     title = Column(String)
-    file_path = Column(String)
+    # No file_path — text is extracted in-memory on upload and stored here
+    content = Column(Text)
     status = Column(String, default="uploaded")  # uploaded, processing, done
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    
-
-
-
 
     owner = relationship("User", back_populates="questionnaires")
-    runs = relationship("AnswerRun", back_populates="questionnaire")
+    runs = relationship("AnswerRun", back_populates="questionnaire", cascade="all, delete-orphan")
 
 
 class ReferenceDocument(Base):
@@ -54,7 +52,7 @@ class ReferenceDocument(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     filename = Column(String, nullable=False)
-    file_path = Column(String)
+    # No file_path — text extracted in-memory on upload
     content = Column(Text)
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
 
@@ -70,7 +68,8 @@ class AnswerRun(Base):
     summary = Column(JSON)  # {total, answered, not_found}
 
     questionnaire = relationship("Questionnaire", back_populates="runs")
-    answers = relationship("Answer", back_populates="run")
+    owner = relationship("User", back_populates="runs")
+    answers = relationship("Answer", back_populates="run", cascade="all, delete-orphan")
 
 
 class Answer(Base):

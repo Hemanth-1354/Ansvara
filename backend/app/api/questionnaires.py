@@ -1,17 +1,14 @@
 import os
-import shutil
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from typing import List
 from app.models.database import get_db, Questionnaire, User
 from app.api.auth import get_current_user
 from app.services.parser import extract_text, parse_questions
 from pydantic import BaseModel
 
 router = APIRouter()
-UPLOAD_DIR = "/app/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 class QuestionnaireOut(BaseModel):
@@ -37,11 +34,11 @@ async def upload_questionnaire(
         raise HTTPException(400, f"File type {ext} not supported")
 
     file_bytes = await file.read()
-    save_path = f"{UPLOAD_DIR}/q_{current_user.id}_{file.filename}"
 
-    with open(save_path, "wb") as f:
-        f.write(file_bytes)
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(400, "File too large. Maximum size is 10 MB.")
 
+    # Extract text in-memory — no file saved to disk
     text = extract_text(file_bytes, file.filename)
     questions = parse_questions(text)
 
@@ -49,7 +46,7 @@ async def upload_questionnaire(
         user_id=current_user.id,
         filename=file.filename,
         title=file.filename.rsplit(".", 1)[0].replace("_", " ").title(),
-        file_path=save_path,
+        content=text,
         status="uploaded"
     )
     db.add(q)
@@ -98,6 +95,7 @@ def delete_questionnaire(
     ).first()
     if not q:
         raise HTTPException(404, "Questionnaire not found")
+    # Cascade delete handles all runs + answers automatically
     db.delete(q)
     db.commit()
     return {"ok": True}

@@ -6,8 +6,8 @@ from app.api.auth import get_current_user
 from app.services.parser import extract_text
 
 router = APIRouter()
-UPLOAD_DIR = "/app/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 @router.post("/upload")
@@ -17,22 +17,23 @@ async def upload_reference_doc(
     current_user: User = Depends(get_current_user)
 ):
     allowed = {".pdf", ".docx", ".txt", ".xlsx", ".md"}
-    ext = os.path.splitext(file.filename)[1].lower()
+    # Use basename to prevent path traversal attacks
+    safe_filename = os.path.basename(file.filename)
+    ext = os.path.splitext(safe_filename)[1].lower()
     if ext not in allowed:
         raise HTTPException(400, f"File type {ext} not supported")
 
     file_bytes = await file.read()
-    save_path = f"{UPLOAD_DIR}/ref_{current_user.id}_{file.filename}"
 
-    with open(save_path, "wb") as f:
-        f.write(file_bytes)
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(400, "File too large. Maximum size is 10 MB.")
 
-    content = extract_text(file_bytes, file.filename)
+    # Extract text in-memory — no file saved to disk
+    content = extract_text(file_bytes, safe_filename)
 
     doc = ReferenceDocument(
         user_id=current_user.id,
-        filename=file.filename,
-        file_path=save_path,
+        filename=safe_filename,
         content=content
     )
     db.add(doc)
