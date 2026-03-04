@@ -7,9 +7,9 @@ from typing import List, Dict
 from groq import AsyncGroq, RateLimitError, APIStatusError
 
 # ---------------------------------------------------------------------------
-# Groq client pool — one semaphore PER KEY so keys never compete with each other.
-# With 4 keys x 6,000 TPM = 24,000 TPM total.
-# Round-robin assignment means Q0→key0, Q1→key1, Q2→key2, Q3→key3, Q4→key0...
+# Groq client pool — one semaphore PER KEY so keys never compete.
+# Round-robin: Q0→key0, Q1→key1, Q2→key2, Q3→key3, Q4→key0 ...
+# With 4 keys x 6,000 TPM = 24,000 TPM total available.
 # ---------------------------------------------------------------------------
 GROQ_API_KEYS = [k.strip() for k in os.getenv("GROQ_API_KEY", "").split(",") if k.strip()]
 
@@ -18,9 +18,8 @@ KEY_POOL = [
     for key in GROQ_API_KEYS
 ] if GROQ_API_KEYS else []
 
-TOP_K = 3            # BM25 chunks retrieved per question
-CONTEXT_WORDS = 150  # matches chunk size — no trimming needed, full chunk always sent
-MAX_TOKENS = 300     # answer length cap — concise = faster
+TOP_K = 3        # chunks retrieved per question
+MAX_TOKENS = 150 # hard cap — prevents runaway repetition loops
 
 
 def _get_key_for_index(i: int):
@@ -30,7 +29,9 @@ def _get_key_for_index(i: int):
 
 
 # ---------------------------------------------------------------------------
-# Chunking
+# Chunking — 150 words per chunk so each section of a policy doc gets its
+# own chunk. Prevents the answer being cut off by a trim mid-chunk.
+# 150 words ≈ 200 tokens — 3 chunks as context = ~600 tokens, well under limit.
 # ---------------------------------------------------------------------------
 
 def chunk_text(text: str, chunk_size: int = 150, overlap: int = 20) -> List[str]:
@@ -55,48 +56,29 @@ def pre_chunk_docs(reference_docs: List[Dict]) -> List[Dict]:
 
 
 # ---------------------------------------------------------------------------
-# BM25 retrieval — pure Python, no dependencies
+# TF-IDF retrieval
+# For each chunk: score = |query_words ∩ chunk_words| / sqrt(chunk_length)
+# Simple, fast, no dependencies, and works well with small focused chunks.
 # ---------------------------------------------------------------------------
 
-def _tokenize(text: str) -> List[str]:
-    return re.findall(r"\w+", text.lower())
-
-
-def build_bm25_index(chunks: List[Dict]) -> Dict:
-    corpus = [_tokenize(c["chunk"]) for c in chunks]
-    N = len(corpus)
-    avg_dl = sum(len(d) for d in corpus) / max(N, 1)
-    df: Dict[str, int] = {}
-    for doc_tokens in corpus:
-        for term in set(doc_tokens):
-            df[term] = df.get(term, 0) + 1
-    return {"corpus": corpus, "N": N, "avg_dl": avg_dl, "df": df}
-
-
-def _bm25_scores(query: str, index: Dict, k1: float = 1.5, b: float = 0.75) -> List[float]:
-    query_terms = _tokenize(query)
-    corpus, N, avg_dl, df = index["corpus"], index["N"], index["avg_dl"], index["df"]
+def _tfidf_scores(query: str, chunks: List[str]) -> List[float]:
+    query_words = set(re.findall(r"\w+", query.lower()))
     scores = []
-    for doc_tokens in corpus:
-        dl = len(doc_tokens)
-        tf_map: Dict[str, int] = {}
-        for t in doc_tokens:
-            tf_map[t] = tf_map.get(t, 0) + 1
-        score = 0.0
-        for term in query_terms:
-            if term not in tf_map:
-                continue
-            tf = tf_map[term]
-            idf = math.log((N - df.get(term, 0) + 0.5) / (df.get(term, 0) + 0.5) + 1)
-            score += idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / max(avg_dl, 1)))
-        scores.append(score)
+    for chunk in chunks:
+        chunk_words = re.findall(r"\w+", chunk.lower())
+        if not chunk_words:
+            scores.append(0.0)
+            continue
+        intersection = query_words & set(chunk_words)
+        scores.append(len(intersection) / (len(chunk_words) ** 0.5 + 1))
     return scores
 
 
-def retrieve_relevant_chunks(question: str, pre_chunked_docs: List[Dict], bm25_index: Dict) -> List[Dict]:
+def retrieve_relevant_chunks(question: str, pre_chunked_docs: List[Dict]) -> List[Dict]:
     if not pre_chunked_docs:
         return []
-    scores = _bm25_scores(question, bm25_index)
+    texts = [c["chunk"] for c in pre_chunked_docs]
+    scores = _tfidf_scores(question, texts)
     ranked = sorted(zip(scores, pre_chunked_docs), key=lambda x: x[0], reverse=True)
     return [
         {"doc_name": ci["doc_name"], "chunk": ci["chunk"], "score": sc}
@@ -107,24 +89,21 @@ def retrieve_relevant_chunks(question: str, pre_chunked_docs: List[Dict], bm25_i
 def compute_confidence(chunks: List[Dict]) -> float:
     if not chunks:
         return 0.0
-    return round(min(chunks[0]["score"] / 10.0, 1.0), 2)
-
-
-def _trim(text: str, max_words: int = CONTEXT_WORDS) -> str:
-    words = text.split()
-    return " ".join(words[:max_words]) + ("..." if len(words) > max_words else "")
+    # TF-IDF scores typically 0.0–1.0; normalise with a soft cap
+    return round(min(chunks[0]["score"] * 2.5, 1.0), 2)
 
 
 # ---------------------------------------------------------------------------
-# Single-question LLM call — small prompt, pinned to one key
+# Single-question LLM call — pinned to one API key via round-robin assignment
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = (
     "You are a precise questionnaire-answering assistant. "
     "Answer using ONLY the reference text provided. "
-    "Be concise: 2 to 4 sentences maximum. "
+    "Write 2 to 4 sentences maximum. Stop after 4 sentences. "
+    "Never repeat yourself. Never list the same item twice. "
     'If the answer is not in the text, reply exactly: "Not found in references." '
-    "No preamble, no markdown."
+    "No preamble, no markdown, no bullet points."
 )
 
 
@@ -136,13 +115,17 @@ def _build_prompt(question: str, chunks: List[Dict]) -> str:
 
 
 async def _call_single(question: str, chunks: List[Dict], key_entry, question_index: int) -> Dict:
-    """Call Groq for ONE question using its assigned key. Retries on rate limit."""
+    """
+    Call Groq for ONE question using its assigned key.
+    Retries up to 5 times with exponential backoff on rate limit.
+    On 413 (still too large), falls back to top-1 chunk only.
+    """
     if not chunks:
         return {"answer": "Not found in references.", "is_found": False}
 
     if key_entry is None:
-        # No API keys configured — return raw snippet as fallback
-        return {"answer": _trim(chunks[0]["chunk"], 60), "is_found": True}
+        # No API keys — return raw snippet as fallback
+        return {"answer": chunks[0]["chunk"][:300], "is_found": True}
 
     client = key_entry["client"]
     sem = key_entry["sem"]
@@ -161,7 +144,8 @@ async def _call_single(question: str, chunks: List[Dict], key_entry, question_in
                         {"role": "user", "content": prompt},
                     ],
                     max_tokens=MAX_TOKENS,
-                    temperature=0.1,
+                    temperature=0.0,
+                    frequency_penalty=1.0,  # penalises repeated tokens — kills looping
                 )
             answer = response.choices[0].message.content.strip()
             is_found = answer.lower() != "not found in references."
@@ -169,16 +153,16 @@ async def _call_single(question: str, chunks: List[Dict], key_entry, question_in
 
         except RateLimitError:
             delay = base_delay * (2 ** attempt) + random.uniform(0.2, 0.8)
-            key_num = question_index % len(KEY_POOL)
-            print(f"  [Q{question_index}] Rate limit on key {key_num} — retry in {delay:.1f}s")
+            key_num = question_index % max(len(KEY_POOL), 1)
+            print(f"  [Q{question_index}] Rate limit key{key_num} — retry in {delay:.1f}s")
             await asyncio.sleep(delay)
 
         except APIStatusError as e:
             if e.status_code == 413:
-                # Still too large — trim context harder and retry immediately
-                current_chunks = [{**c, "chunk": _trim(c["chunk"], 100)} for c in current_chunks[:2]]
+                # Still too large — fall back to top-1 chunk only
+                current_chunks = current_chunks[:1]
                 prompt = _build_prompt(question, current_chunks)
-                print(f"  [Q{question_index}] 413 too large — trimming context, retrying")
+                print(f"  [Q{question_index}] 413 — falling back to top-1 chunk")
                 continue
             print(f"  [Q{question_index}] API error {e.status_code}")
             break
@@ -188,7 +172,7 @@ async def _call_single(question: str, chunks: List[Dict], key_entry, question_in
             break
 
     return {
-        "answer": _trim(current_chunks[0]["chunk"], 80) if current_chunks else "Not found in references.",
+        "answer": current_chunks[0]["chunk"][:200] if current_chunks else "Not found in references.",
         "is_found": bool(current_chunks)
     }
 
@@ -200,30 +184,25 @@ async def _call_single(question: str, chunks: List[Dict], key_entry, question_in
 async def process_all_questions(questions: List[str], pre_chunked_docs: List[Dict]) -> List[Dict]:
     """
     Full pipeline:
-      1. Build BM25 index once
-      2. Retrieve relevant chunks per question  
-      3. Assign each question to a key: Q0->key0, Q1->key1, Q2->key2, Q3->key3, Q4->key0...
-      4. Fire ALL questions truly in parallel — no shared semaphore, no blocking
-      5. Return results in original order
+      1. TF-IDF retrieval per question (fast, in-process)
+      2. Assign each question to a specific API key round-robin
+         Q0->key0, Q1->key1, Q2->key2, Q3->key3, Q4->key0 ...
+      3. Fire ALL questions truly in parallel via asyncio.gather
+         Each key handles its own queue — no cross-key contention
+      4. Return results in original order
 
     With 4 keys and 12 questions:
-      key0 handles Q0, Q4, Q8  (sequentially within key0)
-      key1 handles Q1, Q5, Q9  (sequentially within key1)
-      key2 handles Q2, Q6, Q10 (sequentially within key2)
-      key3 handles Q3, Q7, Q11 (sequentially within key3)
-    Total time = time for the slowest key (~3 sequential calls) instead of 12 sequential.
+      key0: Q0, Q4, Q8   key1: Q1, Q5, Q9
+      key2: Q2, Q6, Q10  key3: Q3, Q7, Q11
+    Total time ≈ 3 sequential LLM calls (~6-8 seconds) not 12.
     """
-    print(f"[RAG] Building BM25 index over {len(pre_chunked_docs)} chunks...")
-    bm25_index = build_bm25_index(pre_chunked_docs)
-
     num_keys = len(KEY_POOL) or 1
     print(f"[RAG] Firing {len(questions)} questions across {num_keys} key(s) in parallel...")
 
-    # Each question gets its chunks retrieved and is assigned to a key
     tasks = [
         _call_single(
             question,
-            retrieve_relevant_chunks(question, pre_chunked_docs, bm25_index),
+            retrieve_relevant_chunks(question, pre_chunked_docs),
             _get_key_for_index(i),
             i
         )
@@ -232,10 +211,9 @@ async def process_all_questions(questions: List[str], pre_chunked_docs: List[Dic
 
     raw_results = await asyncio.gather(*tasks)
 
-    # Format final output
     output = []
     for i, (question, result) in enumerate(zip(questions, raw_results)):
-        retrieved = retrieve_relevant_chunks(question, pre_chunked_docs, bm25_index)
+        retrieved = retrieve_relevant_chunks(question, pre_chunked_docs)
         if not result["is_found"] or not retrieved:
             output.append({
                 "answer": result["answer"],
@@ -263,13 +241,13 @@ async def process_all_questions(questions: List[str], pre_chunked_docs: List[Dic
 
 async def process_question(question: str, pre_chunked_docs: List[Dict]) -> Dict:
     """Single-question pipeline for the regenerate endpoint."""
-    bm25_index = build_bm25_index(pre_chunked_docs)
-    chunks = retrieve_relevant_chunks(question, pre_chunked_docs, bm25_index)
+    chunks = retrieve_relevant_chunks(question, pre_chunked_docs)
     key_entry = KEY_POOL[0] if KEY_POOL else None
     result = await _call_single(question, chunks, key_entry, 0)
 
     if not result["is_found"] or not chunks:
-        return {"answer": result["answer"], "citations": [], "confidence": 0.0, "evidence_snippets": [], "is_found": False}
+        return {"answer": result["answer"], "citations": [], "confidence": 0.0,
+                "evidence_snippets": [], "is_found": False}
     return {
         "answer": result["answer"],
         "citations": [{"doc_name": c["doc_name"], "snippet": c["chunk"][:150] + "..."} for c in chunks[:2]],
