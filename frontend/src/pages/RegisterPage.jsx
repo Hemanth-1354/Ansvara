@@ -22,25 +22,43 @@ function validate(pw) {
   }
 }
 
+function getStrength(rules) {
+  const score = Object.values(rules).filter(Boolean).length
+  if (score <= 1) return { label: 'Weak',   color: 'bg-red-500',    width: 'w-1/4',  text: 'text-red-500' }
+  if (score === 2) return { label: 'Fair',   color: 'bg-orange-400', width: 'w-2/4',  text: 'text-orange-400' }
+  if (score === 3) return { label: 'Good',   color: 'bg-yellow-400', width: 'w-3/4',  text: 'text-yellow-500' }
+  return              { label: 'Strong', color: 'bg-green-500',  width: 'w-full', text: 'text-green-500' }
+}
+
 export default function RegisterPage() {
   const [name, setName]         = useState('')
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw]     = useState(false)
   const [touched, setTouched]   = useState(false)
+  const [nameTouched, setNameTouched]   = useState(false)
+  const [emailTouched, setEmailTouched] = useState(false)
   const [error, setError]       = useState('')
   const { register, isLoading } = useAuthStore()
   const { dark, toggle }        = useThemeStore()
   const navigate                = useNavigate()
 
-  const rules    = validate(password)
-  const allValid = Object.values(rules).every(Boolean)
+  const rules      = validate(password)
+  const allValid   = Object.values(rules).every(Boolean)
+  const strength   = getStrength(rules)
+
+  const nameValid  = name.trim().length >= 4
+  const emailValid = /^[^\s@]+@gmail\.com$/i.test(email)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setTouched(true)
+    setNameTouched(true)
+    setEmailTouched(true)
     setError('')
-    if (!allValid) { setError('Password does not meet all requirements'); return }
+    if (!nameValid)  { setError('Name must be at least 4 characters'); return }
+    if (!emailValid) { setError('Only Gmail addresses (@gmail.com) are allowed'); return }
+    if (!allValid)   { setError('Password does not meet all requirements'); return }
     try {
       await register(email, name, password)
       navigate('/', { replace: true })
@@ -76,13 +94,29 @@ export default function RegisterPage() {
             )}
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Full Name</label>
-              <input type="text" className="input" value={name}
-                onChange={e => setName(e.target.value)} placeholder="Jane Smith" required />
+              <input type="text"
+                className={`input ${nameTouched && !nameValid ? 'input-error' : ''}`}
+                value={name}
+                onChange={e => { setName(e.target.value); setNameTouched(true); setError('') }}
+                placeholder="Jane Smith" required />
+              {nameTouched && !nameValid && (
+                <p className="mt-1.5 text-xs text-red-500 font-medium flex items-center gap-1">
+                  <XCircle size={11} /> Name must be at least 4 characters
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Email</label>
-              <input type="email" className="input" value={email}
-                onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required autoComplete="email" />
+              <input type="email"
+                className={`input ${emailTouched && email && !emailValid ? 'input-error' : ''}`}
+                value={email}
+                onChange={e => { setEmail(e.target.value); setEmailTouched(true); setError('') }}
+                placeholder="you@gmail.com" required autoComplete="email" />
+              {emailTouched && email && !emailValid && (
+                <p className="mt-1.5 text-xs text-red-500 font-medium flex items-center gap-1">
+                  <XCircle size={11} /> Only Gmail addresses (@gmail.com) are accepted
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Password</label>
@@ -98,11 +132,21 @@ export default function RegisterPage() {
                 </button>
               </div>
               {(touched || password) && (
-                <div className="mt-2.5 grid grid-cols-2 gap-1.5 bg-slate-50 dark:bg-slate-800 rounded-xl p-3">
-                  <Rule ok={rules.length} label="Min 8 characters" />
-                  <Rule ok={rules.upper}  label="Uppercase letter" />
-                  <Rule ok={rules.lower}  label="Lowercase letter" />
-                  <Rule ok={rules.number} label="Number (0–9)" />
+                <div className="mt-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl p-3 space-y-2.5">
+                  {/* Strength bar */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-300 ${strength.color} ${strength.width}`} />
+                    </div>
+                    <span className={`text-xs font-semibold ${strength.text}`}>{strength.label}</span>
+                  </div>
+                  {/* Rules */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <Rule ok={rules.length} label="Min 8 characters" />
+                    <Rule ok={rules.upper}  label="Uppercase letter" />
+                    <Rule ok={rules.lower}  label="Lowercase letter" />
+                    <Rule ok={rules.number} label="Number (0–9)" />
+                  </div>
                 </div>
               )}
             </div>
