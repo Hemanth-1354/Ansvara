@@ -1,216 +1,145 @@
-# Ansvara — AI-Powered Questionnaire Answering Tool
+# Ansvara
 
-> **GTM Engineering Internship Assignment**
+Ansvara is a tool for automatically answering structured questionnaires using your own reference documents. You upload a questionnaire and a set of internal documents, and the system generates grounded answers with citations using a RAG pipeline backed by Groq's LLaMA 3.1.
 
-## What I Built
+Built for teams that regularly deal with security reviews, vendor assessments, or compliance audits — where the same internal knowledge base is used repeatedly to answer similar questions.
 
-**Ansvara** is a full-stack web application that automates the completion of structured questionnaires (security reviews, vendor assessments, compliance audits) using AI. Users upload a questionnaire and reference documents; the system uses RAG (Retrieval-Augmented Generation) with Groq's LLaMA 3.1 to answer each question with citations and confidence scores.
-
-### Fictional Company
-
-**Industry:** Healthcare SaaS / Health Tech
-
-**Company:** NovaMed Health — a B2B SaaS platform that helps healthcare organizations automate clinical workflows, manage patient records, and maintain regulatory compliance. NovaMed serves hospitals, outpatient clinics, and telehealth providers across the US, operating under HIPAA and HITRUST frameworks.
-
-Sample questionnaire and reference documents are provided in `sample-data/`.
+Live: https://ansvara.vercel.app
 
 ---
 
-## Tech Stack
+## How it works
+
+1. Register and log in
+2. Upload a questionnaire (PDF, DOCX, TXT, or XLSX)
+3. Upload your reference documents — these become the source of truth
+4. Click Generate — the system parses each question, retrieves relevant chunks via TF-IDF, and sends them to Groq LLaMA 3.1 to produce a grounded answer
+5. Review and edit answers inline
+6. Export as PDF or DOCX, with answers inserted below each question and citations included
+
+If a question cannot be answered from the reference documents, the system returns "Not found in references." rather than hallucinating.
+
+---
+
+## Tech stack
 
 | Layer | Technology |
-|-------|-----------|
+|---|---|
 | Backend | Python 3.11, FastAPI |
-| Database | PostgreSQL 15 |
-| LLM | Groq API (LLaMA 3.1 8B Instant) — free tier |
+| Database | PostgreSQL (Neon) |
+| LLM | Groq API — LLaMA 3.1 8B Instant |
 | Frontend | React 18, Vite, Tailwind CSS |
-| Auth | JWT (python-jose + bcrypt) |
-| RAG | Custom TF-IDF chunk retrieval |
-| Export | python-docx, ReportLab (PDF) |
-| Container | Docker + Docker Compose |
+| Auth | JWT via python-jose + bcrypt |
+| Retrieval | Custom TF-IDF chunking (no vector DB needed) |
+| Export | python-docx, ReportLab |
+| Infra | Docker, Render (backend), Vercel (frontend) |
 
 ---
 
-## Features Implemented
+## Features
 
-### Phase 1 — Core Workflow ✅
-- User signup & login with JWT authentication
-- Upload questionnaire (PDF, DOCX, TXT, XLSX)
-- Upload multiple reference documents
-- AI parses questions automatically
-- RAG pipeline: chunk → retrieve → answer via Groq LLaMA 3.1
-- Each answer includes at least one citation
-- "Not found in references." returned when answer cannot be grounded
-
-### Phase 2 — Review & Export ✅
-- Review all Q&A pairs in a structured web view
-- Edit individual answers inline before export
-- Export to DOCX or PDF — preserves question order, inserts answers below each question, includes citations
-
-### Nice-to-Have Features ✅ (Implemented 4/5)
-1. **Confidence Score** — TF-IDF retrieval quality score shown as a progress bar (0–100%)
-2. **Evidence Snippets** — Raw text chunks from reference docs shown in expandable cards
-3. **Partial Regeneration** — Select individual answers and regenerate with one click
-4. **Version History** — Dashboard shows all previous runs; each run is stored independently
+- JWT authentication with per-user document isolation
+- Parses questions from numbered lists, bullets, and natural language formats
+- TF-IDF retrieval over chunked reference documents (500 words, 50-word overlap)
+- Confidence score per answer based on retrieval quality
+- Evidence snippets — expandable raw chunks that were used to generate each answer
+- Selective regeneration — re-run individual answers without redoing the whole questionnaire
+- Full run history — every generation is saved independently so you can compare versions
+- Export preserves original question order with answers and citations inline
 
 ---
 
-## Architecture
+## Running locally
 
-```
-┌──────────────────┐     HTTP/REST      ┌──────────────────────────────┐
-│  React Frontend  │◄──────────────────►│   FastAPI Backend            │
-│  (Nginx :3000)   │                    │   (:8000)                    │
-└──────────────────┘                    │                              │
-                                        │  /api/auth     JWT auth      │
-                                        │  /api/questionnaires upload  │
-                                        │  /api/documents  ref docs    │
-                                        │  /api/answers  RAG + export  │
-                                        └──────────┬───────────────────┘
-                                                   │
-                              ┌────────────────────┼──────────────────┐
-                              │                    │                  │
-                        ┌─────▼─────┐      ┌──────▼─────┐   ┌───────▼──────┐
-                        │ PostgreSQL│      │ Groq API   │   │ File Storage │
-                        │ (DB :5432)│      │ LLaMA 3.1  │   │ /app/uploads │
-                        └───────────┘      └────────────┘   └──────────────┘
-
-RAG Pipeline:
-  Upload doc → Extract text → Chunk (500 words, 50 overlap)
-  Question → TF-IDF similarity → Top-3 chunks → Groq LLM → Answer + Citations
-```
-
----
-
-## Quickstart
-
-### Prerequisites
-- Docker & Docker Compose installed
-- Groq API key (free at https://console.groq.com)
-
-### 1. Clone / Unzip
+**Prerequisites:** Docker, Docker Compose, a Groq API key (free at console.groq.com)
 
 ```bash
-unzip questionnaire-tool.zip
-cd questionnaire-tool
-```
-
-### 2. Set Your Groq API Key
-
-```bash
+git clone https://github.com/your-username/ansvara.git
+cd ansvara
 cp .env.example .env
-# Edit .env and set your GROQ_API_KEY
-```
-
-Or export inline:
-```bash
-export GROQ_API_KEY=gsk_your_key_here
-```
-
-### 3. Build & Run
-
-```bash
+# Add your GROQ_API_KEY to .env
 docker-compose up --build
 ```
 
-Wait ~60 seconds for all services to start.
+App runs at `http://localhost:3000`. API docs at `http://localhost:8000/docs`.
 
-### 4. Open the App
-
-- **App:** http://localhost:3000
-- **API Docs:** http://localhost:8000/docs
-
-### 5. Try It
-
-1. Register an account
-2. Go to "New Questionnaire"
-3. Upload `sample-data/questionnaire.txt`
-4. Upload all 3 files from `sample-data/` as reference documents
-5. Click "Generate Answers with AI"
-6. Review, edit, and export as PDF or DOCX
+Sample questionnaire and reference documents are in `sample-data/` if you want to test without your own files.
 
 ---
 
-## Environment Variables
+## Environment variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GROQ_API_KEY` | *(required)* | Groq API key for LLaMA 3.1 |
-| `DATABASE_URL` | postgresql://... | PostgreSQL connection string |
-| `SECRET_KEY` | change-me | JWT signing secret |
+| Variable | Required | Description |
+|---|---|---|
+| `GROQ_API_KEY` | Yes | Groq API key for LLaMA 3.1 |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `SECRET_KEY` | Yes | JWT signing secret |
+| `ALLOWED_ORIGINS` | Yes | Comma-separated frontend URLs for CORS |
 
-> **Without a Groq API key**, the app still works — answers will be generated from raw retrieved text snippets as a fallback.
+---
+
+## Project structure
+
+```
+ansvara/
+├── backend/
+│   ├── main.py                      # FastAPI app, CORS, router registration
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── app/
+│       ├── api/
+│       │   ├── auth.py              # Register, login, JWT
+│       │   ├── questionnaires.py    # Upload and parse questionnaires
+│       │   ├── documents.py         # Reference document management
+│       │   └── answers.py           # Generation, editing, export
+│       ├── models/
+│       │   └── database.py          # SQLAlchemy models
+│       └── services/
+│           ├── parser.py            # Text extraction and question parsing
+│           ├── llm.py               # RAG pipeline and Groq integration
+│           └── exporter.py          # DOCX and PDF export
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   ├── components/
+│   │   ├── store/                   # Zustand auth store
+│   │   └── utils/                   # Axios client
+│   ├── vercel.json
+│   └── vite.config.js
+├── sample-data/
+├── docker-compose.yml
+└── .env.example
+```
 
 ---
 
 ## Assumptions
 
-1. **Single-user reference library** — Reference documents are per-user and reused across runs. This simulates an internal knowledge base.
-2. **Question parsing** — The parser handles numbered lists (1. / 1) / Q1:), bullets, and question-sentence heuristics. Edge cases with unusual formatting may require adjustment.
-3. **File size** — Designed for documents up to ~50 pages. Very large PDFs may be slow due to chunking.
-4. **Groq free tier** — LLaMA 3.1 8B Instant is used (fast, free tier). Switch to `llama-3.1-70b-versatile` in `llm.py` for better accuracy.
-5. **TF-IDF RAG** — A lightweight custom retriever is used instead of a vector DB (no external vector DB required). This is sufficient for small-to-medium document sets.
+- Reference documents are per-user and persist across runs, acting as a personal knowledge base
+- Question parsing covers the most common formats (numbered, bulleted, Q: prefixed). Unusual layouts may need manual cleanup
+- TF-IDF is sufficient for small to medium document sets. Semantic search would improve recall on larger corpora
+- LLaMA 3.1 8B Instant was chosen for speed and cost. Swapping to a larger model in `llm.py` improves answer quality
 
 ---
 
 ## Trade-offs
 
-| Decision | Trade-off |
-|----------|-----------|
-| TF-IDF retrieval vs. vector embeddings | Simpler, no extra infra; less semantic understanding |
-| Groq LLaMA 3.1 vs. OpenAI GPT-4 | Free tier; slightly less accurate but fast |
-| File-based storage vs. S3 | Simpler for demo; Docker volume persists data |
-| Single-file React build | Easier to containerize; less code splitting |
-| postgresql over sqlite | Production-ready; requires Docker but real persistence |
+**TF-IDF over vector embeddings** — avoids the overhead of a vector database and embedding API calls. Works well for focused document sets but misses semantically similar content that doesn't share keywords.
+
+**LLaMA 3.1 8B over GPT-4** — the free Groq tier handles the load fine for this use case. Accuracy drops on ambiguous questions but is acceptable for structured compliance content.
+
+**`create_all` over Alembic migrations** — fine for initial deployment, but schema changes in production would require a proper migration setup.
+
+**In-memory file handling** — uploaded files are processed and stored as text in the database rather than on disk or object storage. Simpler to deploy but limits handling of very large files.
 
 ---
 
-## What I'd Improve With More Time
+## What I'd improve with more time
 
-1. **Vector embeddings** — Replace TF-IDF with `sentence-transformers` + pgvector for semantic search
-2. **Streaming answers** — Stream LLM responses token-by-token for better UX
-3. **Async job queue** — Use Celery + Redis for async generation on large questionnaires
-4. **Document preview** — Show parsed question preview before generation
-5. **Team/org support** — Multi-tenant support with shared reference document libraries
-6. **Coverage gap analysis** — Automatically identify reference doc gaps based on "not found" patterns
-7. **Cloud deployment** — Terraform for AWS ECS/Fargate deployment with RDS
-
----
-
-## Project Structure
-
-```
-questionnaire-tool/
-├── backend/
-│   ├── main.py                    # FastAPI app
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── app/
-│       ├── api/
-│       │   ├── auth.py            # JWT auth endpoints
-│       │   ├── questionnaires.py  # Upload & parse questionnaires
-│       │   ├── documents.py       # Reference doc management
-│       │   └── answers.py         # Generate, edit, export
-│       ├── models/
-│       │   └── database.py        # SQLAlchemy models
-│       └── services/
-│           ├── parser.py          # Document text extraction & question parsing
-│           ├── llm.py             # RAG pipeline + Groq LLM
-│           └── exporter.py        # DOCX/PDF export
-├── frontend/
-│   ├── src/
-│   │   ├── pages/                 # LoginPage, RegisterPage, DashboardPage, WorkspacePage, RunDetailPage
-│   │   ├── components/            # Layout, FileDropzone, ConfidenceBar
-│   │   ├── store/                 # Zustand auth store
-│   │   └── utils/                 # Axios API client
-│   ├── Dockerfile
-│   └── nginx.conf
-├── sample-data/
-│   ├── questionnaire.txt          # 12-question compliance questionnaire
-│   ├── security_policy.txt        # NovaMed security reference doc
-│   ├── data_management_policy.txt # NovaMed data management doc
-│   └── certifications_and_audits.txt
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
+- Replace TF-IDF with `sentence-transformers` + pgvector for semantic retrieval
+- Stream LLM responses token by token instead of waiting for the full answer
+- Add Celery + Redis for async generation so large questionnaires don't block the request
+- Proper Alembic migration setup instead of `create_all`
+- Rate limiting on auth endpoints
+- Forgot password flow via Resend (transactional email)
+- Team support with shared reference document libraries across users
