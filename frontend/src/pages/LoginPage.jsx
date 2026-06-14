@@ -35,7 +35,16 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           {/* Logo + Name side by side */}
           <div className="inline-flex items-center gap-3 mb-5">
-            <img src="/logo-final.webp" alt="Ansvara" className="w-14 h-14 rounded-2xl object-cover shadow-lg" />
+            <a
+  href="https://ansvara.vercel.app/"
+  rel="noopener noreferrer"
+>
+  <img
+    src="/logo-final.webp"
+    alt="Ansvara"
+    className="w-14 h-14 rounded-2xl object-cover shadow-lg"
+  />
+</a>
             <span className="font-display text-3xl font-bold text-slate-900 dark:text-white">Ansvara</span>
           </div>
           <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white">Welcome back</h1>
