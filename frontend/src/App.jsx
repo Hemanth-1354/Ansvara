@@ -1,10 +1,12 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import WorkspacePage from './pages/WorkspacePage'
 import RunDetailPage from './pages/RunDetailPage'
 import Layout from './components/Layout'
+import { initGA, trackPageView } from './lib/analytics'
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('token')
@@ -17,6 +19,16 @@ function PublicRoute({ children }) {
 }
 
 export default function App() {
+  const location = useLocation()
+
+  useEffect(() => {
+    initGA()
+  }, [])
+
+  useEffect(() => {
+    trackPageView(location.pathname + location.search)
+  }, [location])
+
   return (
     <Routes>
       <Route path="/login"    element={<PublicRoute><LoginPage /></PublicRoute>} />
